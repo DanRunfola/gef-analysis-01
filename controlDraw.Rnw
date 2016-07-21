@@ -1,0 +1,12 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<ControlDraw, echo=FALSE, results=hide>>=
+createCases = FALSE
+source("/home/aiddata/Desktop/Github/GEF/control_draws.R")
+@
+
+
+\end{document}
