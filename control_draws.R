@@ -8,7 +8,7 @@ library(rgeos)
 library(rgdal)
 
 max.buffer <- 500000
-buffer.hole <- 40000
+buffer.hole <- 50000
 control.buffer <- 25000
 set.seed(424)
 
