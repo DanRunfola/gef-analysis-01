@@ -96,7 +96,7 @@
     {
       "name": "locations.csv", 
       "path": "data/locations.csv", 
-      "bytes": 330281, 
+      "bytes": 335497, 
       "schema": {
         "fields": [
           {
@@ -194,7 +194,7 @@
     {
       "name": "level_1a.csv", 
       "path": "data/level_1a.csv", 
-      "bytes": 1011031, 
+      "bytes": 1026875, 
       "schema": {
         "fields": [
           {
@@ -431,7 +431,7 @@
       "key": "Source Link"
     }, 
     {
-      "value": "07/21/16", 
+      "value": "07/22/16", 
       "key": "Date Updated"
     }
   ]
