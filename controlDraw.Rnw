@@ -8,5 +8,15 @@ createCases = FALSE
 source("/home/aiddata/Desktop/Github/GEF/control_draws.R")
 @
 
+<<DataPrep, echo=FALSE, results=hide>>=
+source("/home/aiddata/Desktop/Github/GEF/data_prep_and_joins.R")
+@
 
+<<Descriptives, echo=FALSE, results=hide>>=
+source("/home/aiddata/Desktop/Github/GEF/descriptive.R")
+@
+
+<<Analysis, echo=FALSE, results=hide>>=
+source("/home/aiddata/Desktop/Github/GEF/analysis.R")
+@
 \end{document}
