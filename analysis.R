@@ -147,6 +147,8 @@ analysis.dta@data$MultiFocal[analysis.dta$Focal.Area.single.letter.code == "L"] 
 analysis.dta@data[is.na(analysis.dta$MultiFocal),]["MultiFocal"] <- 
   sample(0:1,length(analysis.dta@data[is.na(analysis.dta$MultiFocal),][[1]]), replace=TRUE)
 
+analysis.dta@data$LTDR_outcome_mean <- analysis.dta@data$LTDR_outcome_mean / 10000
+
 #Calculate Propensity Score
 pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_average_LTDR + pre_max_LTDR +
                          pre_min_temp + pre_max_temp + pre_average_temp + pre_max_precip +
@@ -162,8 +164,9 @@ pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_average_LTDR + pre_max_
 matched.dta <- match.data(pscore.Calc)
 
 #Remove 0 and 1 cases, if any
-matched.dta <- matched.dta[(matched.dta@data$m1.pscore != 0 &
-                              matched.dta@data$m1.pscore != 1),]
+matched.dta <- matched.dta[as.numeric(matched.dta$distance) < 0.99,]
+matched.dta <- matched.dta[as.numeric(matched.dta$distance) > 0.01,]
+
 
 transOutcome <- list(rep(0,nrow(matched.dta)))
 
@@ -188,11 +191,15 @@ matched.dta$transOutcome <- unlist(transOutcome)
 matched.dta <- merge(matched.dta, analysis.dta@data[c("total_disbursements")], by="row.names")
 matched.dta <- merge(matched.dta, analysis.dta@data[c("Focal.Area.single.letter.code")], by="row.names")
 
+write.csv(matched.dta, "test_out.csv")
+
 #------------------
 #------------------
 #CT
 #------------------
 #------------------
+
+
 
 alist <- list(eval=ctev, split=ctsplit, init=ctinit)
 dbb = matched.dta
@@ -211,7 +218,7 @@ fit1 = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pre_aver
                wdpa_5km.na.sum + treecover2000.na.mean + latitude +
                longitude +total_disbursements +Focal.Area.single.letter.code,
              crxvdata,
-             control = rpart.control(cp = 0,minsplit = 10),
+             control = rpart.control(cp = 0,minsplit = 30),
              method=alist)
 fit = data.matrix(fit1$frame)
 index = as.numeric(rownames(fit1$frame))
@@ -220,13 +227,10 @@ tsize = dim(fit1$frame[which(fit1$frame$var=="<leaf>"),])[1]
 alpha = 0
 alphalist = 0
 alphalist = cross_validate(fit, index,alphalist)
+
 res = rep(0,length(alphalist)-1)
-if(length(alphalist) <= 2){
-  res = alphalist
-}else{
-  for(j in 2:(length(alphalist)-1)){
-    res[j] = sqrt(alphalist[j]*alphalist[j+1])
-  }
+for(j in 2:(length(alphalist)-1)){
+  res[j] = sqrt(alphalist[j]*alphalist[j+1])
 }
 
 alphacandidate = res
@@ -251,7 +255,7 @@ for(l in 1:length(alphacandidate)){
                     wdpa_5km.na.sum + treecover2000.na.mean + latitude +
                     longitude +total_disbursements +Focal.Area.single.letter.code,
                   trainingset,
-                  control = rpart.control(cp = alpha,minsplit = 10),
+                  control = rpart.control(cp = alpha,minsplit = 30),
                   method=alist)
     
     
@@ -275,6 +279,7 @@ for(l in 1:length(alphacandidate)){
     errset[l] = error/k
   }
   msg = paste(l,": ",errset[l]*k,sep="")
+  print(msg)
 }
 
 tsize = tsize[-1]
@@ -290,8 +295,17 @@ fit_ctpred = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pr
                wdpa_5km.na.sum + treecover2000.na.mean + latitude +
                longitude +total_disbursements +Focal.Area.single.letter.code,
              crxvdata,
-             control=rpart.control(minsplit=10,cp=alpha_res),
+             control=rpart.control(minsplit=30,cp=alpha_res),
              method=alist)
 
+rpart.plot(fit_ctpred, left=FALSE, cex=0.5)
 
+trt.dta.A <- analysis.dta[aVars]@data
+trt.dta <- trt.dta.A[trt.dta.A$treatment == 1,]
+trt.dta$pred_trt_NDVI <- predict(fit_ctpred, trt.dta)
+lonlat <- trt.dta[,c("longitude", "latitude")]
+trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = trt.dta,
+                                        proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
 
+writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/NDVI_treat_est.shp")
+write.csv(trt.dta, "/home/aiddata/Desktop/Github/GEF/Summary/NDVI_treat_est.csv")
