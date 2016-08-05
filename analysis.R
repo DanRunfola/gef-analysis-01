@@ -152,7 +152,7 @@ analysis.dta@data$LTDR_outcome_mean <- analysis.dta@data$LTDR_outcome_mean / 100
 #Calculate Propensity Score
 pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_average_LTDR + pre_max_LTDR +
                          pre_min_temp + pre_max_temp + pre_average_temp + pre_max_precip +
-                         pre_min_precip + pre_average_precip + post_implementation_time +
+                         pre_min_precip + pre_average_precip +
                          year + dist_to_all_rivers.na.mean + dist_to_roads.na.mean +
                          srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
                          accessibility_map.na.mean + gpw_v3_density.2000.mean +
@@ -198,7 +198,7 @@ write.csv(matched.dta, "test_out.csv")
 #CT
 #------------------
 #------------------
-
+m.split = 50
 
 
 alist <- list(eval=ctev, split=ctsplit, init=ctinit)
@@ -208,8 +208,70 @@ n = dim(dbb)[1]
 crxvdata = dbb
 crxvdata$id <- sample(1:k, nrow(crxvdata), replace = TRUE)
 list = 1:k
-fit1 = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pre_average_NTL + 
-               pre_average_LTDR + pre_max_LTDR + pre_min_temp + pre_max_temp + 
+
+
+errset = list()
+
+  for (i in 1:k){
+    errset[[i]] = list()
+    trainingset <- subset(crxvdata, id %in% list[-i])
+    sub.fit = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pre_average_NTL + 
+                      pre_average_LTDR + pre_max_LTDR + pre_min_temp + pre_max_temp + 
+                      pre_average_temp + pre_max_precip +
+                      pre_min_precip + pre_average_precip + post_implementation_time +
+                      dist_to_all_rivers.na.mean + dist_to_roads.na.mean +
+                      srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
+                      accessibility_map.na.mean + gpw_v3_density.2000.mean +
+                      wdpa_5km.na.sum + treecover2000.na.mean + latitude +
+                      longitude +total_disbursements +Focal.Area.single.letter.code,
+                    trainingset,
+                    control = rpart.control(cp = 0,minsplit = m.split),
+                    method=alist)
+    sub.fit.dm = data.matrix(sub.fit$frame)
+    index = as.numeric(rownames(sub.fit$frame))
+    removed_nodes = 0
+    #fit1$frame$var = as.numeric(fit1$frame$var)
+    removed_nodes = cross_validate(sub.fit.dm, index,removed_nodes)
+    removed_nodes = removed_nodes[-1]
+    #errset[i] = rep(0,length(removed_nodes))
+    for(l in 1:length(removed_nodes)){
+      error = 0
+      sub.fit.pred = snip.rpart(sub.fit, removed_nodes[1:l])
+      
+      #Subset Fit
+      testset <- subset(crxvdata, id %in% c(i))
+      pt = predict(sub.fit.pred,testset,type = "matrix")
+      y = data.frame(pt)
+      val = data.matrix(y)
+      idx = as.numeric(rownames(testset))
+      dbidx = as.numeric(rownames(dbb))
+      
+      for(pid in 1:(dim(y)[1])){
+         id = match(idx[pid],dbidx)
+         error = error + (dbb$transOutcome[id] - val[pid])^2
+      }
+      
+      if(error == 0){
+        errset[[i]][l] = 1000000
+      }
+      else{
+        errset[[i]][l] = error/k
+      }
+  }
+  }
+
+#Identify the average error to depth ratio across all cross-validations
+avg.index <- vector()
+for(e in 1:length(errset))
+{
+ avg.index[e] <- which.min(errset[[e]])
+}
+
+#---------------
+#Build Final Tree
+#---------------
+fit1 = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pre_average_NTL +
+               pre_average_LTDR + pre_max_LTDR + pre_min_temp + pre_max_temp +
                pre_average_temp + pre_max_precip +
                pre_min_precip + pre_average_precip + post_implementation_time +
                dist_to_all_rivers.na.mean + dist_to_roads.na.mean +
@@ -218,91 +280,46 @@ fit1 = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pre_aver
                wdpa_5km.na.sum + treecover2000.na.mean + latitude +
                longitude +total_disbursements +Focal.Area.single.letter.code,
              crxvdata,
-             control = rpart.control(cp = 0,minsplit = 30),
+             control = rpart.control(cp = 0,minsplit = m.split),
              method=alist)
 fit = data.matrix(fit1$frame)
 index = as.numeric(rownames(fit1$frame))
-tsize = dim(fit1$frame[which(fit1$frame$var=="<leaf>"),])[1]
 
-alpha = 0
-alphalist = 0
-alphalist = cross_validate(fit, index,alphalist)
 
-res = rep(0,length(alphalist)-1)
-for(j in 2:(length(alphalist)-1)){
-  res[j] = sqrt(alphalist[j]*alphalist[j+1])
-}
+removed_nodes = 0
+removed_nodes = cross_validate(fit, index,removed_nodes)
+removed_nodes = removed_nodes[-1]
+pruned_nodes = removed_nodes[1:round(mean(avg.index))]
+final.tree <- snip.rpart(fit1, pruned_nodes)
 
-alphacandidate = res
-alphaset = rep(0,length(alphacandidate))
-errset = rep(0,length(alphacandidate))
-tsize = 0
+#Prep for output
+print.tree <- final.tree
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="accessibility_map.na.mean"] <- "Urb Dist"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="total_disbursements"] <- "Disbursements"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_max_precip"] <- "Max Precip"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_min_precip"] <- "Min Precip"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="treecover2000.na.mean"] <- "Treecover"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="srtm_elevation_500m.na.mean"] <- "Elevation"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="dist_to_roads.na.mean"] <- "Road Dist"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="wdpa_5km.na.sum"] <- "Protected"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="dist_to_all_rivers.na.mean"] <- "River Dist"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_NTL"] <- "Nighttime Lights"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_precip"] <- "Avg Precip"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_max_LTDR"] <- "Max NDVI"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_max_temp"] <- "Max Temp"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_temp"] <- "Avg Temp"
+levels(print.tree $frame$var)[levels(print.tree $frame$var)=="gpw_v3_density.2000.mean"] <- "Pop Density"
 
-for(l in 1:length(alphacandidate)){
-  alpha = alphacandidate[l]
-  error = 0
-  treesize = 0
-  for (i in 1:k){
-    trainingset <- subset(crxvdata, id %in% list[-i])
-    testset <- subset(crxvdata, id %in% c(i))
-    fit1 = rpart (cbind(LTDR_outcome_mean,treatment,distance,transOutcome)  ~ pre_average_NTL + 
-                    pre_average_LTDR + pre_max_LTDR + pre_min_temp + pre_max_temp + 
-                    pre_average_temp + pre_max_precip +
-                    pre_min_precip + pre_average_precip + post_implementation_time +
-                    dist_to_all_rivers.na.mean + dist_to_roads.na.mean +
-                    srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
-                    accessibility_map.na.mean + gpw_v3_density.2000.mean +
-                    wdpa_5km.na.sum + treecover2000.na.mean + latitude +
-                    longitude +total_disbursements +Focal.Area.single.letter.code,
-                  trainingset,
-                  control = rpart.control(cp = alpha,minsplit = 30),
-                  method=alist)
-    
-    
-    treesize = treesize + dim(fit1$frame[which(fit1$frame$var=="<leaf>"),])[1]
-    pt = predict(fit1,testset,type = "matrix")
-    y = data.frame(pt)
-    val = data.matrix(y)
-    idx = as.numeric(rownames(testset))
-    dbidx = as.numeric(rownames(crxvdata))
-    for(pid in 1:(dim(testset)[1])){
-      id = match(idx[pid],dbidx)
-      error = error + (crxvdata$transOutcome[id] - val[pid])^2
-    }
-  }
-  
-  tsize = c(tsize,treesize/k)
-  if(error == 0){
-    errset[l] = 1000000
-  }
-  else{
-    errset[l] = error/k
-  }
-  msg = paste(l,": ",errset[l]*k,sep="")
-  print(msg)
-}
+rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
+           box.col=c("pink", "palegreen3")[findInterval(print.tree $frame$yval, v = c(-1,0))],
+           faclen=0,
+           varlen=0
+           )
 
-tsize = tsize[-1]
-alpha_res = alphacandidate[which.min(errset)]
-
-fit_ctpred = rpart(cbind(LTDR_outcome_mean,treatment,distance,transOutcome) ~ pre_average_NTL + 
-               pre_average_LTDR + pre_max_LTDR + pre_min_temp + pre_max_temp + 
-               pre_average_temp + pre_max_precip +
-               pre_min_precip + pre_average_precip + post_implementation_time +
-               dist_to_all_rivers.na.mean + dist_to_roads.na.mean +
-               srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
-               accessibility_map.na.mean + gpw_v3_density.2000.mean +
-               wdpa_5km.na.sum + treecover2000.na.mean + latitude +
-               longitude +total_disbursements +Focal.Area.single.letter.code,
-             crxvdata,
-             control=rpart.control(minsplit=30,cp=alpha_res),
-             method=alist)
-
-rpart.plot(fit_ctpred, left=FALSE, cex=0.5)
 
 trt.dta.A <- analysis.dta[aVars]@data
 trt.dta <- trt.dta.A[trt.dta.A$treatment == 1,]
-trt.dta$pred_trt_NDVI <- predict(fit_ctpred, trt.dta)
+trt.dta$pred_trt_NDVI <- predict(final.tree, trt.dta)
 lonlat <- trt.dta[,c("longitude", "latitude")]
 trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = trt.dta,
                                         proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))

@@ -1,4 +1,3 @@
-
 #include <Rcpp.h>
 #include <cstdlib>
 #include <iostream>
@@ -9,10 +8,10 @@
 #include <string>
 #include <cctype>
 #include <omp.h>
-// Enable C++11 via this plugin (Rcpp 0.10.3 or later)
-// [[Rcpp::plugins(cpp11)]]
-
-using namespace Rcpp;
+  // Enable C++11 via this plugin (Rcpp 0.10.3 or later)
+  // [[Rcpp::plugins(cpp11)]]
+  
+  using namespace Rcpp;
 
 
 // [[Rcpp::export]]
@@ -59,7 +58,7 @@ NumericVector cv(NumericMatrix fit, NumericVector index){
     node_error.push_back(err_ht[nodes[i]]);
   }
   
-  double minv = INT_MAX;
+  double minv = 0.0;;
   int minid = 0;
   double delta;
   for(int i=0; i<nodes.size(); i++){
@@ -68,7 +67,9 @@ NumericVector cv(NumericMatrix fit, NumericVector index){
       //std::cout<<i<<":"<<delta<<std::endl;
       //std::cout<<i<<"nodeerr:"<<fit(nodesid[i],3)<<std::endl;
       //std::cout<<i<<"childreerr:"<<node_error[i]<<std::endl;
-      if(delta < minv){
+      //if(minv == 0.0){minv = delta;}
+      
+      if(delta < minv || minv == 0.0){
         minv = delta;
         minid = nodesid[i];
       }
@@ -76,7 +77,8 @@ NumericVector cv(NumericMatrix fit, NumericVector index){
     
   }
   std::vector<double> res;
-  res.push_back(minv);
+  //res.push_back(minv);
+  res.push_back(index[minid]);
   //std::cout<<minid<<std::endl;
   res.push_back(minid);
   std::unordered_map<int, int> mp;
@@ -125,12 +127,14 @@ NumericVector cross_validate(NumericMatrix fit, NumericVector index, NumericVect
   alpha = res[0];
   int nodeid;
   nodeid = res[1];
-  //std::cout<<"nodeid"<<nodeid<<"res"<<res.size()<<std::endl;
+  std::cout<<"nodeid"<<nodeid<<"res"<<res.size()<<std::endl;
   std::vector<int> rowid;
   if(nodeid == 0){
     return alphalistm;
   }
   alphalistm.push_back(alpha);
+  
+  //removed subtree node as leaf
   fit(nodeid,0) = 1;
   for(int i=1; i<res.size(); i++){
     rowid.push_back(res[i]);
@@ -155,7 +159,7 @@ NumericVector cross_validate(NumericMatrix fit, NumericVector index, NumericVect
 // [[Rcpp::export]]
 NumericVector splitnc(NumericMatrix y,NumericVector x){
   std::vector<int> arr(x.size(),0);
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int i=0; i<x.size(); i++){
     //std::cout<<x[i]<<std::endl;
     arr[i] = x[i];
@@ -178,20 +182,20 @@ NumericVector splitnc(NumericMatrix y,NumericVector x){
   std::vector<int> goodness(n-1,0);
   
   // for(int i=0;i<len;i++){
-    //   for(int j=0;j<n;j++){
-      //     if(x[i] == ux[j]){
-        //       count[j] = count[j] + 1;
-        //       sum[j] = sum[j] + y(i,0);
-        //       break;
-        //     }
-      //   }
-    // }
+  //   for(int j=0;j<n;j++){
+  //     if(x[i] == ux[j]){
+  //       count[j] = count[j] + 1;
+  //       sum[j] = sum[j] + y(i,0);
+  //       break;
+  //     }
+  //   }
+  // }
   for(int i=0; i<len; i++){
     ht_cnt[arr[i]]++;
     ht_val[arr[i]] += y(i,3);
   }
   
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int i=0;i<n;i++){
     mean[i] = ht_val[ux[i]] / ht_cnt[ux[i]];
   }
@@ -206,18 +210,18 @@ NumericVector splitnc(NumericMatrix y,NumericVector x){
   std::sort(idx.begin(),idx.end(), [&mean](int a,int b) {return mean[a] < mean[b] ;});
   
   // for(int i=0;i<n-1;i++){
-    //   for(int j=i+1;j<n;j++){
-      //     if(mean[i]>mean[j]){
-        //       double tmp = mean[j];
-        //       mean[j] = mean[i];
-        //       mean[i] = tmp;
-        //       double temp = ux[j];
-        //       ux[j] = ux[i];
-        //       ux[i] = temp;
-        //     }
-      //   }
-    //   
-      // }
+  //   for(int j=i+1;j<n;j++){
+  //     if(mean[i]>mean[j]){
+  //       double tmp = mean[j];
+  //       mean[j] = mean[i];
+  //       mean[i] = tmp;
+  //       double temp = ux[j];
+  //       ux[j] = ux[i];
+  //       ux[i] = temp;
+  //     }
+  //   }
+  //   
+  // }
   std::vector<int> uxx;
   for(int i=0; i<n; i++){
     uxx.push_back(ux[idx[i]]);
@@ -228,7 +232,7 @@ NumericVector splitnc(NumericMatrix y,NumericVector x){
     ht_ux[ux[i]] = i;
   }
   
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int j=0;j<n-1;j++){
     double rss = 0.0;
     double wmeanleft = 0.0;
@@ -242,7 +246,7 @@ NumericVector splitnc(NumericMatrix y,NumericVector x){
     double sumTrtWtright = 0.0;
     double sumUntrtWtright = 0.0;
     int pos;
-    #pragma omp parallel for
+#pragma omp parallel for
     for(int i=0;i<len;i++){
       pos = ht_ux[x[i]];
       if(pos<=j){
@@ -294,11 +298,11 @@ NumericVector splitnc(NumericMatrix y,NumericVector x){
       goodness[j] = 0;
     }
   }
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int i=0;i<n-1;i++){
     out[i] = goodness[i];
   }
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int i=n-1;i<=2*(n-1);i++){
     out[i] = ux[i-n+1];
   }
@@ -358,7 +362,7 @@ NumericVector splitc(NumericMatrix y){
   int max;
   max=omp_get_max_threads();
   omp_set_num_threads(max);
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int j=0;j<n-1;j++){
     double rss = 0.0;
     double wmeanleft = 0.0;
