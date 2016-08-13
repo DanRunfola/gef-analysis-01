@@ -44,7 +44,9 @@ GEF.spdf.prj$year <- substr(GEF.spdf.prj$start_actual_isodate,1,4)
 
 #Setting unknown project dates to 2002, as a conservative option.
 #Can remove this at the cost of a lower N.
-GEF.spdf.prj@data[GEF.spdf.prj$year == "",]["year"] <- 2002
+#GEF.spdf.prj@data[GEF.spdf.prj$year == "",]["year"] <- 2002
+
+GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj@data$year),]
 
 #Calculate post-implementation-years
 GEF.spdf.prj@data$post_implementation_time <- (2014-as.numeric(GEF.spdf.prj@data$year))
@@ -66,6 +68,21 @@ timeRangeAvg <- function(dta,prefix,affix,startyr,endyr)
   return(rmean)
 }
 
+timeRangeSum <- function(dta,prefix,affix,startyr,endyr)
+{
+  
+  searchS = paste("^",prefix,startyr,affix,sep="")
+  searchE = paste("^",prefix,endyr,affix,sep="")
+  
+  
+  strt_id <- grep(searchS,colnames(dta@data))
+  end_id <- grep(searchE,colnames(dta@data))
+  
+  rsum <- rowSums(dta@data[strt_id[[1]]:end_id[[length(end_id)]]], 
+                    na.rm=TRUE)
+  return(rsum)
+}
+
 
 GEF.spdf.prj$LTDR_outcome_mean <- NA
 GEF.spdf.prj$LTDR_outcome_max <- NA
@@ -80,6 +97,7 @@ GEF.spdf.prj$pre_min_temp <- NA
 GEF.spdf.prj$pre_average_NTL <- NA
 GEF.spdf.prj$pre_average_LTDR <- NA
 GEF.spdf.prj$pre_max_LTDR <- NA
+GEF.spdf.prj$Hansen_loss <- NA
 
 for(i in 1:length(GEF.spdf.prj))
 {
@@ -96,13 +114,22 @@ for(i in 1:length(GEF.spdf.prj))
   GEF.spdf.prj$pre_average_LTDR[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_mean.", ".mean", 1982, loc_year)
   GEF.spdf.prj$pre_max_LTDR[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_max.", ".mean", 1982, loc_year)
   
-  GEF.spdf.prj$LTDR_outcome_mean[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_mean.", ".mean", loc_year, 2014)
-  GEF.spdf.prj$LTDR_outcome_max[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_max.", ".mean", loc_year, 2014)
+  GEF.spdf.prj$Hansen_loss[[i]] <- timeRangeSum(GEF.spdf.prj[i,], "lossyr25.na.categorical_", "", loc_year, 2014)
   
 }
 
+#Calculate hansen loss outcome
+GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
+
+#Drop cases for which no hansen data existed
+GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj$cover_outcome),]
+
+GEF.spdf.prj@data$MultiFocal <- NA
+GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "M"] <- 1
+GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "L"] <- 0
+
 #Choose pscore variables
-pVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL", 
+pVars <- c("pre_average_NTL", 
            "pre_average_LTDR", "pre_max_LTDR", "pre_min_temp", "pre_max_temp",
            "pre_average_temp", "pre_max_precip", "pre_min_precip", 
            "pre_average_precip", "post_implementation_time", "year",
@@ -110,10 +137,17 @@ pVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL",
            "srtm_elevation_500m.na.mean", "srtm_slope_500m.na.mean",
            "accessibility_map.na.mean", "gpw_v3_density.2000.mean",
            "wdpa_5km.na.sum", "treecover2000.na.mean", "treatment", "latitude",
-           "longitude")
+           "longitude", "udel_precip_v4_01_yearly_max.2002.mean", 
+           "udel_precip_v4_01_yearly_min.2002.mean", 
+           "udel_precip_v4_01_yearly_mean.2002.mean",
+           "udel_air_temp_v4_01_yearly_max.2002.mean",   
+           "udel_air_temp_v4_01_yearly_min.2002.mean",   
+           "udel_air_temp_v4_01_yearly_mean.2002.mean",
+           "v4composites_calibrated.2002.mean",
+           "ltdr_yearly_ndvi_mean.2002.mean")
 
 #Choose analysis variables
-aVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL", 
+aVars <- c("pre_average_NTL", 
            "pre_average_LTDR", "pre_max_LTDR", "pre_min_temp", "pre_max_temp",
            "pre_average_temp", "pre_max_precip", "pre_min_precip", 
            "pre_average_precip", "post_implementation_time", "year",
@@ -121,7 +155,15 @@ aVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL",
            "srtm_elevation_500m.na.mean", "srtm_slope_500m.na.mean",
            "accessibility_map.na.mean", "gpw_v3_density.2000.mean",
            "wdpa_5km.na.sum", "treecover2000.na.mean", "treatment", "latitude",
-           "longitude", "total_disbursements", "Focal.Area.single.letter.code")
+           "longitude", "total_disbursements", "MultiFocal", "cover_outcome",
+           "udel_precip_v4_01_yearly_max.2002.mean", 
+           "udel_precip_v4_01_yearly_min.2002.mean", 
+           "udel_precip_v4_01_yearly_mean.2002.mean",
+           "udel_air_temp_v4_01_yearly_max.2002.mean",   
+           "udel_air_temp_v4_01_yearly_min.2002.mean",   
+           "udel_air_temp_v4_01_yearly_mean.2002.mean",
+           "v4composites_calibrated.2002.mean",
+           "ltdr_yearly_ndvi_mean.2002.mean")
 
 analysis.dtaA <- GEF.spdf.prj[!is.na(GEF.spdf.prj@data$pre_max_precip),]
 analysis.dtaB <- analysis.dtaA[!is.na(analysis.dtaA@data$gpw_v3_density.2000.mean),]
@@ -147,8 +189,6 @@ analysis.dta@data$MultiFocal[analysis.dta$Focal.Area.single.letter.code == "L"] 
 analysis.dta@data[is.na(analysis.dta$MultiFocal),]["MultiFocal"] <- 
   sample(0:1,length(analysis.dta@data[is.na(analysis.dta$MultiFocal),][[1]]), replace=TRUE)
 
-analysis.dta@data$LTDR_outcome_max <- analysis.dta@data$LTDR_outcome_max / 10000
-analysis.dta@data$LTDR_outcome_mean <- analysis.dta@data$LTDR_outcome_mean / 10000
 
 #Calculate Propensity Score
 pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_max_LTDR +
@@ -163,6 +203,8 @@ pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_max_LTDR +
                        method="nearest", distance="logit")
 
 matched.dta <- match.data(pscore.Calc)
+
+matched.dta <- merge(matched.dta, analysis.dta[c("cover_outcome")], by="row.names")
 
 #Remove 0 and 1 cases, if any
 matched.dta <- matched.dta[as.numeric(matched.dta$distance) < 0.99,]
@@ -180,13 +222,13 @@ for(i in 1:nrow(matched.dta))
   if(matched.dta$treatment[i] == 1)
   {
     #Treated
-    transOutcome[i] = matched.dta$LTDR_outcome_max[i] * 
+    transOutcome[i] = matched.dta$cover_outcome[i] * 
       (1 / matched.dta$distance[i])
   }
   else
   {
     #Untreated
-    transOutcome[i] = -1 * (matched.dta$LTDR_outcome_max[i] * 
+    transOutcome[i] = -1 * (matched.dta$cover_outcome[i] * 
                               ((1-0) / (1 - matched.dta$distance[i])))
   }
 }
@@ -199,13 +241,13 @@ for(i in 1:nrow(analysis.dtaC))
   if(analysis.dtaC$treatment[i] == 1)
   {
     #Treated
-    transOutcome[i] = analysis.dtaC$LTDR_outcome_max[i] * 
+    transOutcome[i] = analysis.dtaC$cover_outcome[i] * 
       (1 / analysis.dtaC$distance[i])
   }
   else
   {
     #Untreated
-    transOutcome[i] = -1 * (analysis.dtaC$LTDR_outcome_max[i] * 
+    transOutcome[i] = -1 * (analysis.dtaC$cover_outcome[i] * 
                               ((1-0) / (1 - analysis.dtaC$distance[i])))
   }
 }
@@ -233,14 +275,14 @@ n = dim(dbb)[1]
 crxvdata = dbb
 crxvdata$id <- sample(1:k, nrow(crxvdata), replace = TRUE)
 list = 1:k
-m.split = round(length(dbb[[1]]) / 8,0)
+m.split = round(length(dbb[[1]]) / 10,0)
 
 errset = list()
 
   for (i in 1:k){
     errset[[i]] = list()
     trainingset <- subset(crxvdata, id %in% list[-i])
-    sub.fit = rpart(cbind(LTDR_outcome_max,treatment,distance,transOutcome) ~
+    sub.fit = rpart(cbind(cover_outcome,treatment,distance,transOutcome) ~
                       pre_max_LTDR + pre_min_temp + pre_max_temp + 
                       pre_average_temp + pre_max_precip +
                       pre_min_precip + pre_average_precip + post_implementation_time +
@@ -295,7 +337,7 @@ for(e in 1:length(errset))
 #---------------
 #Build Final Tree
 #---------------
-fit1 = rpart(cbind(LTDR_outcome_max,treatment,distance,transOutcome) ~ 
+fit1 = rpart(cbind(cover_outcome,treatment,distance,transOutcome) ~ 
                pre_max_LTDR + pre_min_temp + pre_max_temp +
                pre_average_temp + pre_max_precip +
                pre_min_precip + pre_average_precip + post_implementation_time +
@@ -350,5 +392,5 @@ lonlat <- trt.dta[,c("longitude", "latitude")]
 trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = trt.dta,
                                         proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
 
-writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/NDVI_treat_est.shp")
-write.csv(trt.dta, "/home/aiddata/Desktop/Github/GEF/Summary/NDVI_treat_est.csv")
+writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/TreeCover_treat_est.shp")
+write.csv(trt.dta, "/home/aiddata/Desktop/Github/GEF/Summary/TreeCover_treat_est.csv")

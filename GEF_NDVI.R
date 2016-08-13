@@ -121,7 +121,7 @@ aVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL",
            "srtm_elevation_500m.na.mean", "srtm_slope_500m.na.mean",
            "accessibility_map.na.mean", "gpw_v3_density.2000.mean",
            "wdpa_5km.na.sum", "treecover2000.na.mean", "treatment", "latitude",
-           "longitude", "total_disbursements", "Focal.Area.single.letter.code")
+           "longitude", "total_disbursements", "MultiFocal")
 
 analysis.dtaA <- GEF.spdf.prj[!is.na(GEF.spdf.prj@data$pre_max_precip),]
 analysis.dtaB <- analysis.dtaA[!is.na(analysis.dtaA@data$gpw_v3_density.2000.mean),]
@@ -233,7 +233,7 @@ n = dim(dbb)[1]
 crxvdata = dbb
 crxvdata$id <- sample(1:k, nrow(crxvdata), replace = TRUE)
 list = 1:k
-m.split = round(length(dbb[[1]]) / 8,0)
+m.split = round(length(dbb[[1]]) / 20,0)
 
 errset = list()
 
