@@ -10,6 +10,22 @@ GEF.treat.dta <- read.table("/home/aiddata/Desktop/Github/GEF/Data/Extractions/m
                             sep=",", header=TRUE)
 
 
+#Load in information on Fragmentation
+frag.stats.csv <-  read.table("/home/aiddata/Desktop/Github/GEF/Data/Fragmentation/Hansen_mean_patch_size.csv", 
+                              sep=",", header=TRUE)
+
+#Rename fragstat headers
+names(frag.stats.csv)[5:19] <- sub("X", "mean_patch_size", names(frag.stats.csv[5:19]))
+
+#Split frag stats by T and C
+frag.stats.T <- frag.stats.csv[grepl("T", frag.stats.csv[,1]),]
+frag.stats.C <- frag.stats.csv[grepl("C", frag.stats.csv[,1]),]
+
+#Merge the fragmentation data into the relevant CSVs
+GEF.control.dta <- merge(GEF.control.dta, frag.stats.C, by.x="id", by.y="Id")
+
+GEF.treat.dta <- merge(GEF.treat.dta, frag.stats.T, by.x="id", by.y="Id")
+
 GEF.control.shp <- readShapePoly("/home/aiddata/Desktop/Github/GEF/TreatControl/GEF_controls.shp")
 proj4string(GEF.control.shp) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84")
 GEF.treat.shp <- readShapePoly("/home/aiddata/Desktop/Github/GEF/TreatControl/GEF_treatments.shp")
@@ -61,6 +77,8 @@ for(i in 1:length(GEF.treat))
 
 #Merge in the data with the new joincodes.
 GEF.treat <- merge(GEF.treat, treat.meta.loc.spdf@data, by="joincodes")
+
+
 
 #Add empty columns to the GEF control set (i.e., for monetary)
 for(j in 1:length(names(GEF.treat)))

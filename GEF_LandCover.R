@@ -44,7 +44,7 @@ GEF.spdf.prj$year <- substr(GEF.spdf.prj$start_actual_isodate,1,4)
 
 #Setting unknown project dates to 2002, as a conservative option.
 #Can remove this at the cost of a lower N.
-#GEF.spdf.prj@data[GEF.spdf.prj$year == "",]["year"] <- 2002
+GEF.spdf.prj@data[GEF.spdf.prj$year == "",]["year"] <- 2002
 
 GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj@data$year),]
 
@@ -117,6 +117,16 @@ for(i in 1:length(GEF.spdf.prj))
   GEF.spdf.prj$Hansen_loss[[i]] <- timeRangeSum(GEF.spdf.prj[i,], "lossyr25.na.categorical_", "", loc_year, 2014)
   
 }
+
+GEF.spdf.prj@data$MultiFocal <- NA
+GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "M"] <- 1
+GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "L"] <- 0
+
+GEF.pred <- GEF.spdf.prj
+GEF.pred$longitude <- as.vector(coordinates(GEF.pred)[,1])
+GEF.pred$latitude <- as.vector(coordinates(GEF.pred)[,2])
+
+
 
 #Calculate hansen loss outcome
 GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
@@ -378,19 +388,24 @@ levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_temp"]
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="gpw_v3_density.2000.mean"] <- "Pop Density"
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="post_implementation_time"] <- "Years Since Proj. Imp."
 
+png("~/Desktop/Github/GEF/Summary/GEF_LandCover.png")
 rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
-           box.col=c("pink", "palegreen3")[findInterval(print.tree $frame$yval, v = c(-1,0))],
+           box.col=c("palegreen3", "pink")[findInterval(print.tree $frame$yval, v = c(-1,0))],
            faclen=0,
            varlen=0
            )
+dev.off()
 
 
-trt.dta.A <- analysis.dta[aVars]@data
-trt.dta <- trt.dta.A[trt.dta.A$treatment == 1,]
-trt.dta$pred_trt_NDVI <- predict(final.tree, trt.dta)
-lonlat <- trt.dta[,c("longitude", "latitude")]
-trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = trt.dta,
-                                        proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
+GEF.pred <- GEF.pred[aVars]@data
+GEF.pred <- GEF.pred[GEF.pred$treatment==1,]
 
-writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/TreeCover_treat_est.shp")
-write.csv(trt.dta, "/home/aiddata/Desktop/Github/GEF/Summary/TreeCover_treat_est.csv")
+GEF.pred$pred_trt <- predict(final.tree, GEF.pred)
+
+lonlat <- GEF.pred[,c("longitude", "latitude")]
+
+trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = GEF.pred,
+                                      proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
+
+writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Cover.shp")
+write.csv(GEF.pred, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Cover.csv")

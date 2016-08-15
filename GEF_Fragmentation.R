@@ -46,8 +46,13 @@ GEF.spdf.prj$year <- substr(GEF.spdf.prj$start_actual_isodate,1,4)
 #Can remove this at the cost of a lower N.
 GEF.spdf.prj@data[GEF.spdf.prj$year == "",]["year"] <- 2002
 
+GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj@data$year),]
+
 #Calculate post-implementation-years
 GEF.spdf.prj@data$post_implementation_time <- (2014-as.numeric(GEF.spdf.prj@data$year))
+
+
+
 
 
 #Calculate pre- and post-average values for NDVI
@@ -66,6 +71,21 @@ timeRangeAvg <- function(dta,prefix,affix,startyr,endyr)
   return(rmean)
 }
 
+timeRangeSum <- function(dta,prefix,affix,startyr,endyr)
+{
+  
+  searchS = paste("^",prefix,startyr,affix,sep="")
+  searchE = paste("^",prefix,endyr,affix,sep="")
+  
+  
+  strt_id <- grep(searchS,colnames(dta@data))
+  end_id <- grep(searchE,colnames(dta@data))
+  
+  rsum <- rowSums(dta@data[strt_id[[1]]:end_id[[length(end_id)]]], 
+                    na.rm=TRUE)
+  return(rsum)
+}
+
 
 GEF.spdf.prj$LTDR_outcome_mean <- NA
 GEF.spdf.prj$LTDR_outcome_max <- NA
@@ -80,6 +100,8 @@ GEF.spdf.prj$pre_min_temp <- NA
 GEF.spdf.prj$pre_average_NTL <- NA
 GEF.spdf.prj$pre_average_LTDR <- NA
 GEF.spdf.prj$pre_max_LTDR <- NA
+GEF.spdf.prj$Hansen_loss <- NA
+GEF.spdf.prj$preFrag_avg <- NA
 
 for(i in 1:length(GEF.spdf.prj))
 {
@@ -95,9 +117,11 @@ for(i in 1:length(GEF.spdf.prj))
   GEF.spdf.prj$pre_average_NTL[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "v4composites_calibrated.", ".mean", 1992, loc_year)
   GEF.spdf.prj$pre_average_LTDR[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_mean.", ".mean", 1982, loc_year)
   GEF.spdf.prj$pre_max_LTDR[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_max.", ".mean", 1982, loc_year)
+  GEF.spdf.prj$preFrag_avg[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "mean_patch_size", "", 2000, loc_year)
   
-  GEF.spdf.prj$LTDR_outcome_mean[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_mean.", ".mean", loc_year, 2014)
-  GEF.spdf.prj$LTDR_outcome_max[[i]] <- timeRangeAvg(GEF.spdf.prj[i,], "ltdr_yearly_ndvi_max.", ".mean", loc_year, 2014)
+  #Post data
+  GEF.spdf.prj$Hansen_loss[[i]] <- timeRangeSum(GEF.spdf.prj[i,], "lossyr25.na.categorical_", "", loc_year, 2014)
+ 
   
 }
 
@@ -111,8 +135,16 @@ GEF.pred$latitude <- as.vector(coordinates(GEF.pred)[,2])
 
 
 
+#Calculate hansen loss outcome
+GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
+
+#Drop cases for which no hansen data existed
+GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj$cover_outcome),]
+
+
+
 #Choose pscore variables
-pVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL", 
+pVars <- c("pre_average_NTL", 
            "pre_average_LTDR", "pre_max_LTDR", "pre_min_temp", "pre_max_temp",
            "pre_average_temp", "pre_max_precip", "pre_min_precip", 
            "pre_average_precip", "post_implementation_time", "year",
@@ -120,10 +152,18 @@ pVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL",
            "srtm_elevation_500m.na.mean", "srtm_slope_500m.na.mean",
            "accessibility_map.na.mean", "gpw_v3_density.2000.mean",
            "wdpa_5km.na.sum", "treecover2000.na.mean", "treatment", "latitude",
-           "longitude")
+           "longitude", "udel_precip_v4_01_yearly_max.2002.mean", 
+           "udel_precip_v4_01_yearly_min.2002.mean", 
+           "udel_precip_v4_01_yearly_mean.2002.mean",
+           "udel_air_temp_v4_01_yearly_max.2002.mean",   
+           "udel_air_temp_v4_01_yearly_min.2002.mean",   
+           "udel_air_temp_v4_01_yearly_mean.2002.mean",
+           "v4composites_calibrated.2002.mean",
+           "ltdr_yearly_ndvi_mean.2002.mean",
+           "preFrag_avg")
 
 #Choose analysis variables
-aVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL", 
+aVars <- c("pre_average_NTL", 
            "pre_average_LTDR", "pre_max_LTDR", "pre_min_temp", "pre_max_temp",
            "pre_average_temp", "pre_max_precip", "pre_min_precip", 
            "pre_average_precip", "post_implementation_time", "year",
@@ -131,7 +171,16 @@ aVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL",
            "srtm_elevation_500m.na.mean", "srtm_slope_500m.na.mean",
            "accessibility_map.na.mean", "gpw_v3_density.2000.mean",
            "wdpa_5km.na.sum", "treecover2000.na.mean", "treatment", "latitude",
-           "longitude", "total_disbursements", "MultiFocal")
+           "longitude", "total_disbursements", "MultiFocal", "cover_outcome",
+           "udel_precip_v4_01_yearly_max.2002.mean", 
+           "udel_precip_v4_01_yearly_min.2002.mean", 
+           "udel_precip_v4_01_yearly_mean.2002.mean",
+           "udel_air_temp_v4_01_yearly_max.2002.mean",   
+           "udel_air_temp_v4_01_yearly_min.2002.mean",   
+           "udel_air_temp_v4_01_yearly_mean.2002.mean",
+           "v4composites_calibrated.2002.mean",
+           "ltdr_yearly_ndvi_mean.2002.mean",
+           "preFrag_avg", "mean_patch_size2014")
 
 analysis.dtaA <- GEF.spdf.prj[!is.na(GEF.spdf.prj@data$pre_max_precip),]
 analysis.dtaB <- analysis.dtaA[!is.na(analysis.dtaA@data$gpw_v3_density.2000.mean),]
@@ -157,8 +206,6 @@ analysis.dta@data$MultiFocal[analysis.dta$Focal.Area.single.letter.code == "L"] 
 analysis.dta@data[is.na(analysis.dta$MultiFocal),]["MultiFocal"] <- 
   sample(0:1,length(analysis.dta@data[is.na(analysis.dta$MultiFocal),][[1]]), replace=TRUE)
 
-analysis.dta@data$LTDR_outcome_max <- analysis.dta@data$LTDR_outcome_max / 10000
-analysis.dta@data$LTDR_outcome_mean <- analysis.dta@data$LTDR_outcome_mean / 10000
 
 #Calculate Propensity Score
 pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_max_LTDR +
@@ -168,11 +215,13 @@ pscore.Calc <- matchit(treatment ~ pre_average_NTL + pre_max_LTDR +
                          srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
                          accessibility_map.na.mean + gpw_v3_density.2000.mean +
                          wdpa_5km.na.sum + treecover2000.na.mean + latitude +
-                         longitude,
+                         longitude + preFrag_avg,
                          data= analysis.dta[pVars]@data,
                        method="nearest", distance="logit")
 
 matched.dta <- match.data(pscore.Calc)
+
+matched.dta <- merge(matched.dta, analysis.dta[c("mean_patch_size2014")], by="row.names")
 
 #Remove 0 and 1 cases, if any
 matched.dta <- matched.dta[as.numeric(matched.dta$distance) < 0.99,]
@@ -190,13 +239,13 @@ for(i in 1:nrow(matched.dta))
   if(matched.dta$treatment[i] == 1)
   {
     #Treated
-    transOutcome[i] = matched.dta$LTDR_outcome_max[i] * 
+    transOutcome[i] = matched.dta$mean_patch_size2014[i] * 
       (1 / matched.dta$distance[i])
   }
   else
   {
     #Untreated
-    transOutcome[i] = -1 * (matched.dta$LTDR_outcome_max[i] * 
+    transOutcome[i] = -1 * (matched.dta$mean_patch_size2014[i] * 
                               ((1-0) / (1 - matched.dta$distance[i])))
   }
 }
@@ -209,13 +258,13 @@ for(i in 1:nrow(analysis.dtaC))
   if(analysis.dtaC$treatment[i] == 1)
   {
     #Treated
-    transOutcome[i] = analysis.dtaC$LTDR_outcome_max[i] * 
+    transOutcome[i] = analysis.dtaC$mean_patch_size2014[i] * 
       (1 / analysis.dtaC$distance[i])
   }
   else
   {
     #Untreated
-    transOutcome[i] = -1 * (analysis.dtaC$LTDR_outcome_max[i] * 
+    transOutcome[i] = -1 * (analysis.dtaC$mean_patch_size2014[i] * 
                               ((1-0) / (1 - analysis.dtaC$distance[i])))
   }
 }
@@ -243,14 +292,14 @@ n = dim(dbb)[1]
 crxvdata = dbb
 crxvdata$id <- sample(1:k, nrow(crxvdata), replace = TRUE)
 list = 1:k
-m.split = round(length(dbb[[1]]) / 20,0)
+m.split = round(length(dbb[[1]]) / 50,0)
 
 errset = list()
 
   for (i in 1:k){
     errset[[i]] = list()
     trainingset <- subset(crxvdata, id %in% list[-i])
-    sub.fit = rpart(cbind(LTDR_outcome_max,treatment,distance,transOutcome) ~
+    sub.fit = rpart(cbind(mean_patch_size2014,treatment,distance,transOutcome) ~
                       pre_max_LTDR + pre_min_temp + pre_max_temp + 
                       pre_average_temp + pre_max_precip +
                       pre_min_precip + pre_average_precip + post_implementation_time +
@@ -258,7 +307,7 @@ errset = list()
                       srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
                       accessibility_map.na.mean + gpw_v3_density.2000.mean +
                       wdpa_5km.na.sum + treecover2000.na.mean + latitude +
-                      longitude +MultiFocal,
+                      longitude +MultiFocal+preFrag_avg,
                     trainingset,
                     control = rpart.control(cp = 0,minsplit = m.split),
                     method=alist)
@@ -305,7 +354,7 @@ for(e in 1:length(errset))
 #---------------
 #Build Final Tree
 #---------------
-fit1 = rpart(cbind(LTDR_outcome_max,treatment,distance,transOutcome) ~ 
+fit1 = rpart(cbind(mean_patch_size2014,treatment,distance,transOutcome) ~ 
                pre_max_LTDR + pre_min_temp + pre_max_temp +
                pre_average_temp + pre_max_precip +
                pre_min_precip + pre_average_precip + post_implementation_time +
@@ -313,7 +362,7 @@ fit1 = rpart(cbind(LTDR_outcome_max,treatment,distance,transOutcome) ~
                srtm_elevation_500m.na.mean + srtm_slope_500m.na.mean +
                accessibility_map.na.mean + gpw_v3_density.2000.mean +
                wdpa_5km.na.sum + treecover2000.na.mean + latitude +
-               longitude + MultiFocal,
+               longitude + MultiFocal+preFrag_avg,
              crxvdata,
              control = rpart.control(cp = 0,minsplit = m.split),
              method=alist)
@@ -346,13 +395,12 @@ levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_temp"]
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="gpw_v3_density.2000.mean"] <- "Pop Density"
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="post_implementation_time"] <- "Years Since Proj. Imp."
 
-png("~/Desktop/Github/GEF/Summary/GEF_NDVI.png")
+png("~/Desktop/Github/GEF/Summary/GEF_Fragmentation.png")
 rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
-           box.col=c("pink", "palegreen3")[findInterval(print.tree $frame$yval, v = c(-1,0))],
+           box.col=c("pink", "palegreen3")[findInterval(print.tree$frame$yval, v = c(-1000000000000000000,0))],
            faclen=0,
            varlen=0
            )
-
 dev.off()
 
 
@@ -364,7 +412,7 @@ GEF.pred$pred_trt <- predict(final.tree, GEF.pred)
 lonlat <- GEF.pred[,c("longitude", "latitude")]
 
 trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = GEF.pred,
-                                      proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
+                                        proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
 
-writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_NDVI.shp")
-write.csv(GEF.pred, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_NDVI.csv")
+writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Frag.shp")
+write.csv(GEF.pred, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Frag.csv")
