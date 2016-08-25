@@ -346,15 +346,23 @@ levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_temp"]
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="gpw_v3_density.2000.mean"] <- "Pop Density"
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="post_implementation_time"] <- "Years Since Proj. Imp."
 
-png("~/Desktop/Github/GEF/Summary/GEF_NDVI.png")
+png("~/Desktop/Github/GEF/Summary/GEF_NDVI_thumb.png", width = 480, height = 480)
 rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
            box.col=c("pink", "palegreen3")[findInterval(print.tree $frame$yval, v = c(-1,0))],
            faclen=0,
            varlen=0
            )
-
+title("NDVI")
 dev.off()
 
+png("~/Desktop/Github/GEF/Summary/GEF_NDVI.png", width = 1280, height = 720)
+rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
+           box.col=c("pink", "palegreen3")[findInterval(print.tree $frame$yval, v = c(-1,0))],
+           faclen=0,
+           varlen=0
+)
+title("NDVI")
+dev.off()
 
 GEF.pred <- GEF.pred[aVars]@data
 GEF.pred <- GEF.pred[GEF.pred$treatment==1,]

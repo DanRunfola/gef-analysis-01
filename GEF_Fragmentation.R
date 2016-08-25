@@ -129,14 +129,16 @@ GEF.spdf.prj@data$MultiFocal <- NA
 GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "M"] <- 1
 GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "L"] <- 0
 
+#Calculate hansen loss outcome
+GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
+
 GEF.pred <- GEF.spdf.prj
 GEF.pred$longitude <- as.vector(coordinates(GEF.pred)[,1])
 GEF.pred$latitude <- as.vector(coordinates(GEF.pred)[,2])
 
 
 
-#Calculate hansen loss outcome
-GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
+
 
 #Drop cases for which no hansen data existed
 GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj$cover_outcome),]
@@ -395,13 +397,24 @@ levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_temp"]
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="gpw_v3_density.2000.mean"] <- "Pop Density"
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="post_implementation_time"] <- "Years Since Proj. Imp."
 
-png("~/Desktop/Github/GEF/Summary/GEF_Fragmentation.png")
+png("~/Desktop/Github/GEF/Summary/GEF_Frag_thumb.png", width = 480, height = 480)
 rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
            box.col=c("pink", "palegreen3")[findInterval(print.tree$frame$yval, v = c(-1000000000000000000,0))],
            faclen=0,
            varlen=0
            )
+title("Fragmentation")
 dev.off()
+
+png("~/Desktop/Github/GEF/Summary/GEF_Frag.png", width = 1280, height = 720)
+rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
+           box.col=c("pink", "palegreen3")[findInterval(print.tree$frame$yval, v = c(-1000000000000000000,0))],
+           faclen=0,
+           varlen=0
+)
+title("Fragmentation")
+dev.off()
+
 
 
 GEF.pred <- GEF.pred[aVars]@data

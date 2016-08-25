@@ -118,6 +118,9 @@ for(i in 1:length(GEF.spdf.prj))
   
 }
 
+#Calculate hansen loss outcome
+GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
+
 GEF.spdf.prj@data$MultiFocal <- NA
 GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "M"] <- 1
 GEF.spdf.prj@data$MultiFocal[GEF.spdf.prj$Focal.Area.single.letter.code == "L"] <- 0
@@ -128,8 +131,7 @@ GEF.pred$latitude <- as.vector(coordinates(GEF.pred)[,2])
 
 
 
-#Calculate hansen loss outcome
-GEF.spdf.prj$cover_outcome <- GEF.spdf.prj$Hansen_loss / GEF.spdf.prj$X00forest25.na.sum
+
 
 #Drop cases for which no hansen data existed
 GEF.spdf.prj <- GEF.spdf.prj[!is.na(GEF.spdf.prj$cover_outcome),]
@@ -388,12 +390,22 @@ levels(print.tree $frame$var)[levels(print.tree $frame$var)=="pre_average_temp"]
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="gpw_v3_density.2000.mean"] <- "Pop Density"
 levels(print.tree $frame$var)[levels(print.tree $frame$var)=="post_implementation_time"] <- "Years Since Proj. Imp."
 
-png("~/Desktop/Github/GEF/Summary/GEF_LandCover.png")
+png("~/Desktop/Github/GEF/Summary/GEF_LandCover_thumb.png", width = 480, height = 480)
 rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
            box.col=c("palegreen3", "pink")[findInterval(print.tree $frame$yval, v = c(-1,0))],
            faclen=0,
            varlen=0
            )
+title("Forest Landcover")
+dev.off()
+
+png("~/Desktop/Github/GEF/Summary/GEF_LandCover.png", width = 1280, height = 720)
+rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.right.labs=FALSE,
+           box.col=c("palegreen3", "pink")[findInterval(print.tree $frame$yval, v = c(-1,0))],
+           faclen=0,
+           varlen=0
+)
+title("Forest Landcover")
 dev.off()
 
 
@@ -407,5 +419,5 @@ lonlat <- GEF.pred[,c("longitude", "latitude")]
 trt.dta.out <- SpatialPointsDataFrame(coords = lonlat, data = GEF.pred,
                                       proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84"))
 
-writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Cover.shp")
-write.csv(GEF.pred, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Cover.csv")
+writePointsShape(trt.dta.out, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_LandCover.shp")
+write.csv(GEF.pred, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_LandCover.csv")
