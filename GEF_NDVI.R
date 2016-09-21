@@ -364,7 +364,24 @@ rpart.plot(print.tree , cex=0.3, extra=1, branch=1, type=4, tweak=1.4, clip.righ
 title("NDVI")
 dev.off()
 
-GEF.pred <- GEF.pred[aVars]@data
+#Output variables
+kVars <- c("LTDR_outcome_mean", "LTDR_outcome_max", "pre_average_NTL", 
+           "pre_average_LTDR", "pre_max_LTDR", "pre_min_temp", "pre_max_temp",
+           "pre_average_temp", "pre_max_precip", "pre_min_precip", 
+           "pre_average_precip", "post_implementation_time", "year",
+           "dist_to_all_rivers.na.mean", "dist_to_roads.na.mean",
+           "srtm_elevation_500m.na.mean", "srtm_slope_500m.na.mean",
+           "accessibility_map.na.mean", "gpw_v3_density.2000.mean",
+           "wdpa_5km.na.sum", "treecover2000.na.mean", "treatment", "latitude",
+           "longitude", "total_disbursements", "MultiFocal", "project_id", 
+           "project_location_id", "Region", "gazetteer_adm_name")
+
+
+GEF.pred <- GEF.spdf.prj
+GEF.pred$longitude <- as.vector(coordinates(GEF.pred)[,1])
+GEF.pred$latitude <- as.vector(coordinates(GEF.pred)[,2])
+
+GEF.pred <- GEF.pred[kVars]@data
 GEF.pred <- GEF.pred[GEF.pred$treatment==1,]
 
 GEF.pred$pred_trt <- predict(final.tree, GEF.pred)

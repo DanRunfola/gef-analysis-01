@@ -66,7 +66,19 @@ summary(summaryBy(carbonTonnes ~ project_id , data = predDF, FUN=sum, na.rm=TRUE
 
 summary(summaryBy(carbonTonnes ~ project_id , data = predDF, FUN=sum, na.rm=TRUE)["carbonTonnes.sum"]*12.9)
 
+
+
+
 write.csv(predDF, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Valuations_Prediction.csv")
+
+#Export for Online Interface
+online.int <- predDF[c("NDVI_Impact", "Frag_Impact", "LandCover_Impact", "project_id", "project_title", "carbonTonnes", "LON", "LAT")]
+online.int$carbon_std_err_val <- 0.0
+names(online.int)[6] <- "carbon_val"
+
+online.int <- online.int[!is.na(online.int$carbon_val),]
+
+write.csv(online.int, "/home/aiddata/Desktop/Github/GEF/Summary/GEF_Valuations_forCarto.csv")
 
 #Valuation SPDF
 lonlat <- predDF[,c("LON", "LAT")]
